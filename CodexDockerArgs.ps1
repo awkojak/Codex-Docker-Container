@@ -6,6 +6,8 @@ $codexDockerArgs = @(
     "--init"
     "--privileged"
     "--mount"
+    "type=volume,target=/var/lib/docker"
+    "--mount"
     "type=volume,source=codex-state,target=/home/codex/.codex"
     "--mount"
     "type=bind,source=${BIND_MOUNT_DIRECTORY},target=/workspace"
