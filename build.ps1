@@ -1,4 +1,4 @@
-$CODEX_LATEST_IMAGE = 'codex-alpine:latest'
+$CODEX_LATEST_IMAGE = 'codex-alpine-docker:latest'
 
 function build {
     param(

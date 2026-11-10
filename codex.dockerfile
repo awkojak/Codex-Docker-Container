@@ -7,11 +7,13 @@ ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FB
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
-        nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap \
+        nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
         --user-group --uid 1000 --shell /bin/bash codex \
+    && (getent group docker >/dev/null || groupadd docker) \
+    && usermod --append --groups docker codex \
     && mkdir -p /workspace /home/codex/.codex \
     && chmod 700 /home/codex/.codex \
     && chown -R codex:codex /workspace /home/codex
@@ -50,8 +52,12 @@ RUN pwsh -NoLogo -NoProfile -NonInteractive \
 # Check both the CLI and the ps query used for daemon process bookkeeping.
 # Remove helper directories in this same layer, before runtime mounts exist.
 RUN codex --version \
+    && dotnet --version \
+    && docker --version \
+    && dockerd --version \
     && ps -p "$$" -o stat= -o lstart= \
     && rm -rf "$CODEX_HOME/tmp/arg0" "$CODEX_HOME/tmp/arg0-linux"
 
 # Mount the SAME named volume at CODEX_HOME for login and subsequent runs.
+USER root
 ENTRYPOINT ["/usr/local/bin/codex-init.sh"]
