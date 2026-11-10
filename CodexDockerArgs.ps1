@@ -1,5 +1,5 @@
 $CODEX_IMAGE ??= $args[0] ?? 'codex-alpine:latest'
-$BIND_MOUNT_DIRECTORY ??= $args[1] ?? 'C:\Users\akolo\Workspace\Codex'
+$BIND_MOUNT_DIRECTORY ??= $args[1] ?? (Get-Location)
 
 $codexDockerArgs = @(
     "--rm"

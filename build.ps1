@@ -1,7 +1,14 @@
-$CODEX_IMAGE ??= $args[0] ?? 'codex-alpine:latest'
+$CODEX_LATEST_IMAGE = 'codex-alpine:latest'
 
-$args | % { docker build --pull --no-cache -f codex.dockerfile -t $_.ToString() . }
+function build {
+    param(
+        [Parameter(Position = 0)]
+        [string]$ImageTag
+    )
 
-if ($args.Length -eq 0 -or -not $args.Contains('codex-alpine:latest')) {
-    docker build --pull --no-cache -f codex.dockerfile -t $CODEX_IMAGE .
+    docker build --pull --no-cache -f codex.dockerfile -t $ImageTag .
 }
+
+$args | % { build $_.ToString() }
+
+if ($args.Length -eq 0 -or -not $args.Contains("${CODEX_LATEST_IMAGE}")) { build "${CODEX_LATEST_IMAGE}" }
