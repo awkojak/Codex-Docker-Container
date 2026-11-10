@@ -7,7 +7,7 @@ ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FB
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
-        nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap \
+        nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
@@ -50,6 +50,7 @@ RUN pwsh -NoLogo -NoProfile -NonInteractive \
 # Check both the CLI and the ps query used for daemon process bookkeeping.
 # Remove helper directories in this same layer, before runtime mounts exist.
 RUN codex --version \
+    && dotnet --version \
     && ps -p "$$" -o stat= -o lstart= \
     && rm -rf "$CODEX_HOME/tmp/arg0" "$CODEX_HOME/tmp/arg0-linux"
 
