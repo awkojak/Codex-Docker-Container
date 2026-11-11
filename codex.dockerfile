@@ -7,7 +7,7 @@ ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FB
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
-        nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec python3 py3-pip \
+        iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec python3 py3-pip \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
@@ -41,6 +41,15 @@ COPY codex-init.sh /usr/local/bin/codex-init.sh
 # Normalize Windows line endings if the script is edited on Windows.
 RUN sed -i 's/\r$//' /usr/local/bin/codex-init.sh \
     && chmod 755 /usr/local/bin/codex-init.sh
+
+USER root
+
+RUN apk add --no-cache sudo \
+    && mkdir -p /etc/sudoers.d \
+    && printf '%s\n' 'codex ALL=(ALL:ALL) NOPASSWD: /sbin/apk add --no-cache *' > /etc/sudoers.d/codex \
+    && chown root:root /etc/sudoers.d/codex \
+    && chmod 0440 /etc/sudoers.d/codex \
+    && visudo -c
 
 USER codex
 WORKDIR /workspace
