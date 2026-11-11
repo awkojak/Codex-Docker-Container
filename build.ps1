@@ -9,6 +9,10 @@ function build {
     docker build --pull --no-cache -f codex.dockerfile -t $ImageTag .
 }
 
-$args | % { build $_.ToString() }
+build "${CODEX_LATEST_IMAGE}"
 
-if ($args.Length -eq 0 -or -not $args.Contains("${CODEX_LATEST_IMAGE}")) { build "${CODEX_LATEST_IMAGE}" }
+$list = [System.Collections.Generic.List[string]]@("akolodziejczak1128/${CODEX_LATEST_IMAGE}")
+
+$args | % { $list.Add($_.ToString()) }
+
+$list | % { if ($_.ToString() -ne "${CODEX_LATEST_IMAGE}") { docker tag "${CODEX_LATEST_IMAGE}" $_.ToString() } }
