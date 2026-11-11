@@ -6,13 +6,15 @@ function build {
         [string]$ImageTag
     )
 
-    docker build --pull --no-cache -f codex.dockerfile -t $ImageTag .
+    docker build --pull --no-cache -f (Join-Path $PSScriptRoot 'codex.dockerfile') -t $ImageTag $PSScriptRoot
 }
 
 build "${CODEX_LATEST_IMAGE}"
 
-$list = [System.Collections.Generic.List[string]]@("akolodziejczak1128/${CODEX_LATEST_IMAGE}")
+$list = @("akolodziejczak1128/${CODEX_LATEST_IMAGE}") + @($args)
 
-$args | % { $list.Add($_.ToString()) }
-
-$list | % { if ($_.ToString() -ne "${CODEX_LATEST_IMAGE}") { docker tag "${CODEX_LATEST_IMAGE}" $_.ToString() } }
+$list | % { 
+    if ($_.ToString() -ne "${CODEX_LATEST_IMAGE}") { 
+        docker tag "${CODEX_LATEST_IMAGE}" $_.ToString() 
+    } 
+}

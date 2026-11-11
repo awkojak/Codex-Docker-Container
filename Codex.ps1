@@ -1,6 +1,8 @@
+$script:CodexDockerArgsPath = (Join-Path $PSScriptRoot 'CodexDockerArgs.ps1')
+
 function codex {
-    if ($codexDockerArgs -eq $null) {
-        . C:\Users\akolo\Workspace\DockerBuildScripts\Codex\CodexDockerArgs.ps1
+    if ($null -eq $codexDockerArgs) {
+        . $script:CodexDockerArgsPath
     }
 
     docker run -it @codexDockerArgs @args
