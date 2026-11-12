@@ -14,13 +14,20 @@ Specify the highest level directory to give codex access to by specifying the bi
 & 'C:\Users\akolo\Workspace\DockerBuildScripts\Codex\build.ps1'
 ```
 
-The script resolves the Dockerfile and build context relative to itself, pulls the base image, disables build caching, and creates `codex-alpine-docker:latest` plus `akolodziejczak1128/codex-alpine-docker:latest`. Additional positional arguments add tags; nothing is pushed. It stops with an error if the build or a tag fails. To pin a Codex version, set `$env:CODEX_VERSION = '<version>'` before running it (the `CODEX_VERSION` build argument defaults to `latest`).
+The script resolves the Dockerfile and build context relative to itself, pulls the base image, disables build caching, and creates `$CODEX_IMAGE` from `image.env` plus `akolodziejczak1128/$CODEX_IMAGE`. Additional positional arguments add tags; nothing is pushed. It stops with an error if the build or a tag fails. To pin a Codex version, set `$env:CODEX_VERSION = '<version>'` before running it (the `CODEX_VERSION` build argument defaults to `latest`).
 
 ## Quick start
 
 These examples use a named volume to preserve Codex credentials and settings and bind the current directory to `/workspace`.
 
 ### Bash
+
+Load the image name from this checkout before running the examples:
+
+```sh
+CODEX_DIR=/path/to/Codex
+. "$CODEX_DIR/image.env"
+```
 
 Log in once using device authentication:
 
@@ -32,7 +39,7 @@ docker run --rm -it --init \
   --mount type=volume,source=codex-state,target=/home/codex/.codex \
   --mount type=volume,target=/var/lib/docker \
   --mount "type=bind,source=$(pwd),target=/workspace" \
-  codex-alpine-docker:latest login --device-auth
+  "$CODEX_IMAGE" login --device-auth
 ```
 
 Start an interactive session using the same `codex-state` volume:
@@ -45,7 +52,7 @@ docker run --rm -it --init \
   --mount type=volume,source=codex-state,target=/home/codex/.codex \
   --mount type=volume,target=/var/lib/docker \
   --mount "type=bind,source=$(pwd),target=/workspace" \
-  codex-alpine-docker:latest
+  "$CODEX_IMAGE"
 ```
 
 For a non-interactive task, pass Codex arguments after the image name (add `-i` only when piping input):
@@ -58,7 +65,7 @@ docker run --rm --init \
   --mount type=volume,source=codex-state,target=/home/codex/.codex \
   --mount type=volume,target=/var/lib/docker \
   --mount "type=bind,source=$(pwd),target=/workspace" \
-  codex-alpine-docker:latest exec --skip-git-repo-check 'refactor unit tests'
+  "$CODEX_IMAGE" exec --skip-git-repo-check 'refactor unit tests'
 ```
 
 To use another directory, replace the bind mount source with its absolute path.
@@ -80,7 +87,7 @@ docker run -it @codexDockerArgs
 docker run @codexDockerArgs exec --skip-git-repo-check 'refactor unit tests'
 ```
 
-Set `$CODEX_IMAGE` and/or `$BIND_MOUNT_DIRECTORY` before dot-sourcing to override the defaults, or pass the image and an absolute host directory positionally: `. .\CodexDockerArgs.ps1 'codex-alpine-docker:latest' 'C:\Users\akolo\My Projects'`. Existing variables take precedence over positional arguments. The helper works in Windows PowerShell 5.1 and PowerShell 7.
+Set `$CODEX_IMAGE` and/or `$BIND_MOUNT_DIRECTORY` before dot-sourcing to override the defaults, or pass the image and an absolute host directory positionally: `. .\CodexDockerArgs.ps1 'myregistry/agent:dev' 'C:\Users\akolo\My Projects'`. Existing variables take precedence over positional arguments. The helper works in Windows PowerShell 5.1 and PowerShell 7.
 
 For a convenience function, dot-source `Codex.ps1` (for example from your PowerShell profile):
 
@@ -136,7 +143,7 @@ docker run --rm -it --init \
   --mount type=volume,source=codex-state,target=/home/codex/.codex \
   --mount type=volume,target=/var/lib/docker \
   --mount "type=bind,source=$(pwd),target=/workspace" \
-  codex-alpine-docker:latest
+  "$CODEX_IMAGE"
 ```
 
 With the PowerShell arguments defined above, pass the environment setting before the argument array:
@@ -146,3 +153,20 @@ docker run -it -e CODEX_SANDBOX=workspace-write @codexDockerArgs
 ```
 
 The entrypoint forwards arguments after the image name to Codex and configures credential storage as a file under `CODEX_HOME`.
+
+## Branch and image selection
+
+`image.env` is the single source of the default `CODEX_IMAGE`. Both `build.ps1`
+and the run helper load it through `ImageConfig.ps1`. Set `$CODEX_IMAGE` before
+invoking either script to override it; build positional arguments remain extra tags.
+The `main` branch contains the CLI without Docker installed inside the image;
+the `*-dockerd` branch contains a rootful daemon, and `*-rootless` contains a
+rootless daemon. Each branch has its own image tag. Build and run from the same checkout.
+
+After changing branches, start a fresh PowerShell session or clear cached settings
+before loading the helper again:
+
+```powershell
+Remove-Variable CODEX_IMAGE, BIND_MOUNT_DIRECTORY, codexDockerArgs -ErrorAction SilentlyContinue
+. .\CodexDockerArgs.ps1
+```
