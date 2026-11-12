@@ -4,7 +4,7 @@ if ($null -eq $CODEX_IMAGE) {
     if ($args.Count -gt 0 -and $null -ne $args[0]) {
         $CODEX_IMAGE = $args[0]
     } else {
-        $CODEX_IMAGE = 'codex-alpine-docker:latest'
+        $CODEX_IMAGE = 'codex-alpine-rootless:latest'
     }
 }
 if ($null -eq $BIND_MOUNT_DIRECTORY) {
