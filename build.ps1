@@ -1,4 +1,4 @@
-$CODEX_LATEST_IMAGE = 'codex-alpine-rootless:latest'
+. (Join-Path $PSScriptRoot 'ImageConfig.ps1')
 
 function build {
     param(
@@ -24,12 +24,12 @@ function build {
     }
 }
 
-build $CODEX_LATEST_IMAGE
+build $CODEX_IMAGE
 
-$tags = @("akolodziejczak1128/${CODEX_LATEST_IMAGE}") + @($args)
+$tags = @("akolodziejczak1128/${CODEX_IMAGE}") + @($args)
 foreach ($tag in $tags) {
-    if ($tag.ToString() -ne $CODEX_LATEST_IMAGE) {
-        docker tag $CODEX_LATEST_IMAGE $tag.ToString()
+    if ($tag.ToString() -ne $CODEX_IMAGE) {
+        docker tag $CODEX_IMAGE $tag.ToString()
         if ($LASTEXITCODE -ne 0) {
             throw "Docker tag failed for '$tag' with exit code $LASTEXITCODE."
         }
