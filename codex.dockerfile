@@ -7,15 +7,13 @@ ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FB
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
-        iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec python3 py3-pip \
-        docker-cli-buildx docker-cli-compose github-cli jq make file patch unzip zip xz \
+        iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk python3 py3-pip \
+        github-cli jq make file patch unzip zip xz \
         coreutils findutils grep sed gawk diffutils tar gzip \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
         --user-group --uid 1000 --shell /bin/bash codex \
-    && (getent group docker >/dev/null || groupadd docker) \
-    && usermod --append --groups docker codex \
     && mkdir -p /workspace /home/codex/.codex \
     && chmod 700 /home/codex/.codex \
     && chown -R codex:codex /workspace /home/codex \
@@ -63,19 +61,14 @@ WORKDIR /workspace
 RUN pwsh -NoLogo -NoProfile -NonInteractive \
     -Command '$ErrorActionPreference = "Stop"; $PSVersionTable.PSVersion.ToString()'
 
-# Check both the CLI and the ps query used for daemon process bookkeeping.
+# Verify the installed CLI and development tools.
 # Remove helper directories in this same layer, before runtime mounts exist.
 RUN codex --version \
     && dotnet --version \
-    && docker --version \
-    && docker buildx version \
-    && docker compose version \
-    && dockerd --version \
     && gh --version \
     && git config --get-all safe.directory \
     && ps -p "$$" -o stat= -o lstart= \
     && rm -rf "$CODEX_HOME/tmp/arg0" "$CODEX_HOME/tmp/arg0-linux"
 
 # Mount the SAME named volume at CODEX_HOME for login and subsequent runs.
-USER root
 ENTRYPOINT ["/usr/local/bin/codex-init.sh"]
