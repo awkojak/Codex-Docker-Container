@@ -8,6 +8,8 @@ ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FB
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
         iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec python3 py3-pip \
+        docker-cli-buildx docker-cli-compose github-cli jq make file patch unzip zip xz \
+        coreutils findutils grep sed gawk diffutils tar gzip \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
@@ -16,7 +18,8 @@ RUN apk upgrade --no-cache \
     && usermod --append --groups docker codex \
     && mkdir -p /workspace /home/codex/.codex \
     && chmod 700 /home/codex/.codex \
-    && chown -R codex:codex /workspace /home/codex
+    && chown -R codex:codex /workspace /home/codex \
+    && git config --system --add safe.directory '*'
 
 # Install the official self-contained PowerShell build for Alpine/musl on x64.
 RUN test "$(apk --print-arch)" = x86_64 \
@@ -35,7 +38,9 @@ RUN apk add --no-cache \
     && rm /tmp/powershell.tar.gz
 
 ENV HOME=/home/codex \
-    CODEX_HOME=/home/codex/.codex
+    CODEX_HOME=/home/codex/.codex \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PATH=/home/codex/.local/bin:$PATH
 
 COPY codex-init.sh /usr/local/bin/codex-init.sh
 # Normalize Windows line endings if the script is edited on Windows.
@@ -63,7 +68,11 @@ RUN pwsh -NoLogo -NoProfile -NonInteractive \
 RUN codex --version \
     && dotnet --version \
     && docker --version \
+    && docker buildx version \
+    && docker compose version \
     && dockerd --version \
+    && gh --version \
+    && git config --get-all safe.directory \
     && ps -p "$$" -o stat= -o lstart= \
     && rm -rf "$CODEX_HOME/tmp/arg0" "$CODEX_HOME/tmp/arg0-linux"
 
