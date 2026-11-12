@@ -19,14 +19,12 @@ if ($null -eq $BIND_MOUNT_DIRECTORY) {
 $codexDockerArgs = @(
     "--rm"
     "--init"
-    # In place of --privileged: what the private Docker daemon and bubblewrap sandboxes
-    # need, without host devices or other added capabilities.
-    "--cap-add=SYS_ADMIN"                   # mounts, namespaces, overlay storage, cgroups
-    "--cap-add=NET_ADMIN"                   # bridge networks, published ports, iptables
-    "--security-opt=seccomp=unconfined"     # default profile blocks pivot_root and keyctl
-    "--security-opt=apparmor=unconfined"    # AppArmor hosts: default profile blocks mounts
-    "--security-opt=systempaths=unconfined" # writable /proc/sys/net, unmasked /proc
-    "--cgroupns=private"                    # own cgroup tree for nested containers
+    # Everything runs as UID 1000 with Docker's default capabilities: no --privileged, no
+    # --cap-add, no root process. Rootless Docker and bubblewrap sandboxes need only:
+    # user namespaces, allowed by seccomp.json (which still blocks io_uring, keyrings, BPF...)
+    "--security-opt=seccomp=$(Join-Path $PSScriptRoot 'seccomp.json')"
+    # a virtual network interface inside rootless Docker's own network namespace
+    "--device=/dev/net/tun"
     # Forwarded only when set on the host; values never appear on the command line.
     "-e"
     "CODEX_API_KEY"
@@ -35,7 +33,7 @@ $codexDockerArgs = @(
     "-e"
     "CODEX_SANDBOX"
     "--mount"
-    "type=volume,target=/var/lib/docker"
+    "type=volume,target=/home/codex/.local/share/docker"
     "--mount"
     "type=volume,source=codex-state,target=/home/codex/.codex"
     "--mount"

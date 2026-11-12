@@ -5,18 +5,21 @@ ARG POWERSHELL_VERSION=7.6.9
 # Update the checksum together with POWERSHELL_VERSION (official musl x64 asset).
 ARG POWERSHELL_SHA256=F83DF6705EDAAE07DB970DCC6C34AD6583D33A2F6199F1B55CDC5354FBB9001C
 
+# Docker runs rootless: rootlesskit, slirp4netns, and newuidmap/newgidmap (shadow-subids,
+# which use file capabilities instead of setuid) let it run entirely as UID 1000.
 RUN apk upgrade --no-cache \
     && apk add --no-cache \
-        iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk docker su-exec python3 py3-pip \
+        iproute2 nodejs npm ca-certificates git bash ripgrep shadow procps-ng bubblewrap dotnet10-sdk python3 py3-pip \
+        docker docker-rootless-extras rootlesskit slirp4netns shadow-subids \
         docker-cli-buildx docker-cli-compose github-cli jq make file patch unzip zip xz \
         coreutils findutils grep sed gawk diffutils tar gzip \
     && npm install --global "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force \
     && useradd --create-home --home-dir /home/codex \
         --user-group --uid 1000 --shell /bin/bash codex \
-    && (getent group docker >/dev/null || groupadd docker) \
-    && usermod --append --groups docker codex \
-    && mkdir -p /workspace /home/codex/.codex \
+    && printf 'codex:100000:65536\n' > /etc/subuid \
+    && printf 'codex:100000:65536\n' > /etc/subgid \
+    && mkdir -p /workspace /home/codex/.codex /home/codex/.local/share/docker \
     && chmod 700 /home/codex/.codex \
     && chown -R codex:codex /workspace /home/codex \
     && git config --system --add safe.directory '*'
@@ -40,6 +43,8 @@ RUN apk add --no-cache \
 ENV HOME=/home/codex \
     CODEX_HOME=/home/codex/.codex \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
+    XDG_RUNTIME_DIR=/tmp/runtime-codex \
+    DOCKER_HOST=unix:///tmp/runtime-codex/docker.sock \
     PATH=/home/codex/.local/bin:$PATH
 
 COPY codex-init.sh /usr/local/bin/codex-init.sh
@@ -47,14 +52,12 @@ COPY codex-init.sh /usr/local/bin/codex-init.sh
 RUN sed -i 's/\r$//' /usr/local/bin/codex-init.sh \
     && chmod 755 /usr/local/bin/codex-init.sh
 
-USER root
-
-RUN apk add --no-cache sudo \
-    && mkdir -p /etc/sudoers.d \
-    && printf '%s\n' 'codex ALL=(ALL:ALL) NOPASSWD: /sbin/apk add --no-cache *' > /etc/sudoers.d/codex \
-    && chown root:root /etc/sudoers.d/codex \
-    && chmod 0440 /etc/sudoers.d/codex \
-    && visudo -c
+# Extra Alpine packages to bake in, since there is no sudo at runtime, e.g. "postgresql-client go"
+# (build.ps1 passes $env:EXTRA_APK_PACKAGES). Declared here so changing it reuses earlier layers.
+ARG EXTRA_APK_PACKAGES=""
+# Then drop every setuid/setgid bit, so nothing in the image can raise a process to root.
+RUN if [ -n "$EXTRA_APK_PACKAGES" ]; then apk add --no-cache $EXTRA_APK_PACKAGES; fi \
+    && find / -xdev -type f -perm /6000 -exec chmod a-s {} +
 
 USER codex
 WORKDIR /workspace
@@ -71,11 +74,15 @@ RUN codex --version \
     && docker buildx version \
     && docker compose version \
     && dockerd --version \
+    && rootlesskit --version \
+    && command -v dockerd-rootless && command -v slirp4netns \
+    && command -v newuidmap && command -v newgidmap \
     && gh --version \
     && git config --get-all safe.directory \
     && ps -p "$$" -o stat= -o lstart= \
+    && test -z "$(find / -xdev -type f -perm /6000 2>/dev/null)" \
     && rm -rf "$CODEX_HOME/tmp/arg0" "$CODEX_HOME/tmp/arg0-linux"
 
 # Mount the SAME named volume at CODEX_HOME for login and subsequent runs.
-USER root
+# The entrypoint runs as codex; the image has no root process at runtime.
 ENTRYPOINT ["/usr/local/bin/codex-init.sh"]

@@ -1,0 +1,31 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "architectures": ["SCMP_ARCH_X86_64", "SCMP_ARCH_X86", "SCMP_ARCH_X32"],
+  "syscalls": [
+    {
+      "comment": "Kernel interfaces that rootless Docker and the CLI sandboxes never need and that are common kernel-exploit targets or act on the whole VM. Most also need capabilities this container does not have.",
+      "names": [
+        "io_uring_setup", "io_uring_enter", "io_uring_register", "userfaultfd", "bpf", "perf_event_open",
+        "kexec_load", "kexec_file_load", "init_module", "finit_module", "delete_module", "reboot",
+        "swapon", "swapoff", "acct", "open_by_handle_at", "lookup_dcookie", "quotactl", "quotactl_fd",
+        "syslog", "settimeofday", "clock_settime", "clock_adjtime", "adjtimex", "iopl", "ioperm",
+        "vm86", "vm86old", "uselib", "nfsservctl", "create_module", "get_kernel_syms", "query_module"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    },
+    {
+      "comment": "Kernel keyrings are shared by every process with the same UID across the VM. ENOSYS lets runc skip its session keyring.",
+      "names": ["keyctl", "add_key", "request_key"],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 38
+    },
+    {
+      "comment": "AF_VSOCK (40) sockets reach the VM host and are not network-namespaced.",
+      "names": ["socket"],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 97,
+      "args": [{ "index": 0, "value": 40, "op": "SCMP_CMP_EQ" }]
+    }
+  ]
+}
