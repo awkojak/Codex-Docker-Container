@@ -47,14 +47,12 @@ COPY codex-init.sh /usr/local/bin/codex-init.sh
 RUN sed -i 's/\r$//' /usr/local/bin/codex-init.sh \
     && chmod 755 /usr/local/bin/codex-init.sh
 
-USER root
-
-RUN apk add --no-cache sudo \
-    && mkdir -p /etc/sudoers.d \
-    && printf '%s\n' 'codex ALL=(ALL:ALL) NOPASSWD: /sbin/apk add --no-cache *' > /etc/sudoers.d/codex \
-    && chown root:root /etc/sudoers.d/codex \
-    && chmod 0440 /etc/sudoers.d/codex \
-    && visudo -c
+# Containment: no runtime sudo, sudoers rules, or setuid/setgid executables.
+RUN find / -xdev -type f -perm /6000 -exec chmod a-s {} + \
+    && if command -v sudo >/dev/null 2>&1 || [ -e /etc/sudoers ] || [ -e /etc/sudoers.d ]; then \
+        echo 'Containment check failed: sudo and sudoers configuration are forbidden.' >&2; exit 1; \
+    fi \
+    && test -z "$(find / -xdev -type f -perm /6000)"
 
 USER codex
 WORKDIR /workspace
