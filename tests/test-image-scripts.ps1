@@ -45,6 +45,18 @@ $CLAUDE_IMAGE = 'unrelated:test'
     Assert-Equal $global:ImageTestCalls[2][2] 'extra:test' 'Positional build argument is an extra tag'
     $run = Get-RunArguments
     $dockerfile = Get-Content (Join-Path $repo "$($app.ToLower()).dockerfile") -Raw
+    # Regressions in either a package list or a sudoers grant must fail this suite.
+    $instructions = ($dockerfile -replace '(?m)^\s*#.*$', '') -replace '\\\r?\n', ' '
+    if ($instructions -match '(?i)\bapk\s+add\b[^;&|\r\n]*?\bsudo(?:-rs)?\b' -or
+        $instructions -match 'NOPASSWD|visudo|(?:>{1,2}|tee)\s*/etc/sudoers') {
+        throw 'Runtime sudo installation or sudoers grant violates containment'
+    }
+    if ($dockerfile -notmatch 'command -v sudo' -or
+        $dockerfile -notmatch '\[ -e /etc/sudoers \]' -or
+        $dockerfile -notmatch '\[ -e /etc/sudoers\.d \]' -or
+        $dockerfile -notmatch 'find / -xdev -type f -perm /6000 -exec chmod a-s') {
+        throw 'Required no-sudo build checks or setuid/setgid stripping are missing'
+    }
     if ($dockerfile -match 'docker-rootless-extras') {
         if ($run -notcontains '--device=/dev/net/tun') { throw 'Rootless TUN missing' }
         if ($run -contains '--cap-add=SYS_ADMIN') { throw 'Rootful arguments in rootless branch' }
@@ -88,4 +100,4 @@ $CLAUDE_IMAGE = 'unrelated:test'
     }
     Assert-Equal $global:ImageTestCalls.Count 1 'No tagging after failed build'
 }
-Write-Output "PASS: $app image selection, build/run agreement, overrides, branch isolation, and failure handling"
+Write-Output "PASS: $app image selection, build/run agreement, overrides, branch isolation, no-sudo policy, and failure handling"

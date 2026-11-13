@@ -55,9 +55,13 @@ RUN sed -i 's/\r$//' /usr/local/bin/codex-init.sh \
 # Extra Alpine packages to bake in, since there is no sudo at runtime, e.g. "postgresql-client go"
 # (build.ps1 passes $env:EXTRA_APK_PACKAGES). Declared here so changing it reuses earlier layers.
 ARG EXTRA_APK_PACKAGES=""
-# Then drop every setuid/setgid bit, so nothing in the image can raise a process to root.
+# Strip setuid/setgid bits from all packages, including optional additions.
 RUN if [ -n "$EXTRA_APK_PACKAGES" ]; then apk add --no-cache $EXTRA_APK_PACKAGES; fi \
-    && find / -xdev -type f -perm /6000 -exec chmod a-s {} +
+    && find / -xdev -type f -perm /6000 -exec chmod a-s {} + \
+    && if command -v sudo >/dev/null 2>&1 || [ -e /etc/sudoers ] || [ -e /etc/sudoers.d ]; then \
+        echo 'Containment check failed: sudo and sudoers configuration are forbidden.' >&2; exit 1; \
+    fi \
+    && test -z "$(find / -xdev -type f -perm /6000)"
 
 USER codex
 WORKDIR /workspace

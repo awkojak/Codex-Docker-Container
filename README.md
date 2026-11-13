@@ -182,3 +182,11 @@ A startup log using `/var/lib/docker` or `/var/run/docker.sock` with a plain
 this checkout with `build.ps1` and reload the helper in a fresh session. The
 rootless image uses the user's runtime socket and `~/.local/share/docker`.
 Do not run a rootful image with this branch's rootless launch arguments.
+
+## No runtime sudo
+
+Containment is a requirement for every build variant. Do not install `sudo` or
+add sudoers rules. Install required system packages in the Dockerfile during the
+image build. Builds strip setuid/setgid bits and fail if a `sudo` command,
+`/etc/sudoers`, or `/etc/sudoers.d` is present, including when introduced by extra
+packages. Rebuild the image to apply this policy to existing installations.
