@@ -1,6 +1,6 @@
 # Codex CLI in Alpine
 
-Run the OpenAI Codex CLI in an Alpine Linux container without Docker installed inside the image. The image also includes Git, the GitHub CLI (`gh`), Bash, ripgrep, jq, make, GNU coreutils/findutils/grep/sed/awk/diff, Node.js/npm, Python/pip, the .NET 10 SDK, PowerShell 7.6.9, and limited passwordless `sudo apk add --no-cache ...` access for anything else.
+Run the OpenAI Codex CLI in an Alpine Linux container without Docker installed inside the image. The image also includes Git, the GitHub CLI (`gh`), Bash, ripgrep, jq, make, GNU coreutils/findutils/grep/sed/awk/diff, Node.js/npm, Python/pip, the .NET 10 SDK, and PowerShell 7.6.9.
 
 The current build targets **linux/amd64**. The CLI and entrypoint run as UID 1000 with the default container permissions.
 
@@ -136,3 +136,11 @@ before loading the helper again:
 Remove-Variable CODEX_IMAGE, BIND_MOUNT_DIRECTORY, codexDockerArgs -ErrorAction SilentlyContinue
 . .\CodexDockerArgs.ps1
 ```
+
+## No runtime sudo
+
+Containment is a requirement for every build variant. Do not install `sudo` or
+add sudoers rules. Install required system packages in the Dockerfile during the
+image build. Builds strip setuid/setgid bits and fail if a `sudo` command,
+`/etc/sudoers`, or `/etc/sudoers.d` is present, including when introduced by extra
+packages. Rebuild the image to apply this policy to existing installations.
