@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
-$app = if (Test-Path (Join-Path $repo 'Codex.ps1')) { 'Codex' } else { 'Claude' }
+$app = 'Codex'
 $helper = Join-Path $repo "${app}DockerArgs.ps1"
 $expected = (ConvertFrom-StringData (Get-Content (Join-Path $repo 'image.env') -Raw)).CODEX_IMAGE
 $global:ImageTestCalls = [System.Collections.Generic.List[object]]::new()
@@ -17,20 +17,25 @@ function Get-RunArguments {
     (Get-Variable -Name "$($app.ToLower())DockerArgs" -ValueOnly)
 }
 
+# The sibling repo may already be loaded in this PowerShell session.
+$CLAUDE_IMAGE = 'unrelated:test'
+
 # A direct build must resolve its default without first loading the run helper.
 & {
-    $CODEX_IMAGE = $null; $CLAUDE_IMAGE = $null
+    $CODEX_IMAGE = $null
     & (Join-Path $repo 'build.ps1')
     $build = $global:ImageTestCalls[0]
     Assert-Equal $build[([array]::IndexOf($build, '-t') + 1)] $expected 'Standalone build default'
+    Assert-Equal $CLAUDE_IMAGE 'unrelated:test' 'Build preserves sibling image variable'
     $global:ImageTestCalls.Clear()
 }
 
 # Each scenario has a fresh scope, just like a fresh PowerShell session.
 & {
-    $CODEX_IMAGE = $null; $CLAUDE_IMAGE = $null; $BIND_MOUNT_DIRECTORY = $null
+    $CODEX_IMAGE = $null; $BIND_MOUNT_DIRECTORY = $null
     . $helper
     Assert-Equal (Get-RunArguments)[-1] $expected 'Default run image'
+    Assert-Equal $CLAUDE_IMAGE 'unrelated:test' 'Run preserves sibling image variable'
     & (Join-Path $repo 'build.ps1') 'extra:test'
     $build = $global:ImageTestCalls[0]
     Assert-Equal $build[0] 'build' 'Build command'
@@ -55,7 +60,7 @@ function Get-RunArguments {
     }
 }
 & {
-    $CODEX_IMAGE = $null; $CLAUDE_IMAGE = $null; $BIND_MOUNT_DIRECTORY = $null
+    $CODEX_IMAGE = $null; $BIND_MOUNT_DIRECTORY = $null
     . $helper 'positional:test' '/tmp/project with spaces'
     Assert-Equal (Get-RunArguments)[-1] 'positional:test' 'Positional image override'
     if ((Get-RunArguments) -notcontains 'type=bind,source=/tmp/project with spaces,target=/workspace') {
@@ -63,7 +68,7 @@ function Get-RunArguments {
     }
 }
 & {
-    $CODEX_IMAGE = 'explicit:test'; $CLAUDE_IMAGE = 'legacy:test'; $BIND_MOUNT_DIRECTORY = $null
+    $CODEX_IMAGE = 'explicit:test'; $BIND_MOUNT_DIRECTORY = $null
     . $helper 'positional:test'
     Assert-Equal (Get-RunArguments)[-1] 'explicit:test' 'Variable precedence'
     $global:ImageTestCalls.Clear()
@@ -71,15 +76,8 @@ function Get-RunArguments {
     $build = $global:ImageTestCalls[0]
     Assert-Equal $build[([array]::IndexOf($build, '-t') + 1)] 'explicit:test' 'Build override'
 }
-if ($app -eq 'Claude') {
-    & {
-        $CODEX_IMAGE = $null; $CLAUDE_IMAGE = 'legacy:test'; $BIND_MOUNT_DIRECTORY = $null
-        . $helper 'positional:test'
-        Assert-Equal (Get-RunArguments)[-1] 'legacy:test' 'Legacy Claude override'
-    }
-}
 & {
-    $CODEX_IMAGE = $null; $CLAUDE_IMAGE = $null
+    $CODEX_IMAGE = $null
     $global:ImageTestCalls.Clear()
     $global:ImageTestDockerExitCode = 17
     try {
